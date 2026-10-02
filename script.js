@@ -1,6 +1,6 @@
 /* ============================================================================
  * LOCATION-SHARING SOCIAL DISCONNECTION PARADIGM
- * Condition: CONTROL — G and M diverge (total ~65s)
+ * Condition: EXCLUSION — G and M diverge (total ~65s)
  *
  * ── MOVEMENT TABLE (global seconds) ────────────────────────────────────────
  *  t         G                         M
@@ -23,14 +23,14 @@
  * 56–62    straight BG               straight BM
  * ========================================================================== */
 
-const CONDITION         = "CONTROL";
-const CONDITION_LABEL = "Control Condition";
+const CONDITION         = "EXCLUSION";
+const CONDITION_LABEL = "Exclusion Condition";
 
 const MAP_CENTER         = [32.888799, 39.929662];
 const SCENE_ROTATION_DEG = 21;
-const MAP_ZOOM           = 17.0;
+const MAP_ZOOM           = 17.4;
 
-const WALK_SPEED_MPS = 1.5;
+const WALK_SPEED_MPS = 1.8;
 const T_STABLE       = 2000;
 const T_FINAL_HOLD   = 3000;
 
@@ -46,12 +46,29 @@ function calculateBearing(start, end) {
 }
 
 const EARTH_RADIUS_M = 6378137;
+const M_PER_DEG_LAT  = Math.PI * EARTH_RADIUS_M / 180;
 function offsetMeters(origin, bearingDeg, meters) {
     const b = bearingDeg * Math.PI / 180;
     const dLat = (meters * Math.cos(b) / EARTH_RADIUS_M) * 180 / Math.PI;
     const dLng = (meters * Math.sin(b) /
         (EARTH_RADIUS_M * Math.cos(origin[1] * Math.PI / 180))) * 180 / Math.PI;
     return [origin[0] + dLng, origin[1] + dLat];
+}
+
+// Local flat metric frame (x = east m, y = north m) around a reference point
+function toXY(p, ref) {
+    const k = Math.cos(ref[1] * Math.PI / 180);
+    return [(p[0] - ref[0]) * M_PER_DEG_LAT * k, (p[1] - ref[1]) * M_PER_DEG_LAT];
+}
+function fromXY(xy, ref) {
+    const k = Math.cos(ref[1] * Math.PI / 180);
+    return [ref[0] + xy[0] / (M_PER_DEG_LAT * k), ref[1] + xy[1] / M_PER_DEG_LAT];
+}
+function vecBearing(v) { return (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360; }
+
+// Map's screen-pixel-to-meter ratio (Web Mercator), for a given latitude and zoom.
+function metersPerPixel(lat, zoom) {
+    return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
 }
 
 function buildPureDrift(totalDur, driftBearing) {
@@ -127,7 +144,11 @@ const ACTIVE_MS_G = scheduleTotalSeconds(SCHEDULE_G) * 1000;
 const ACTIVE_MS_M = scheduleTotalSeconds(SCHEDULE_M) * 1000;
 const TOTAL_ANIMATION_DURATION = T_STABLE + Math.max(ACTIVE_MS_G, ACTIVE_MS_M) + T_FINAL_HOLD;
 
-const positions = { leftNode: START_G, rightNode: START_M, mainNode: START_U };
+let userPos = [...START_U];
+let moveInterval = null;
+let currentDirectionBtn = null;
+
+const positions = { leftNode: START_G, rightNode: START_M, mainNode: userPos };
 const people = [
     { id: "leftNode",  markerType: "grey-letter-dot", initial: "G" },
     { id: "rightNode", markerType: "grey-letter-dot", initial: "M" },
@@ -295,6 +316,55 @@ function injectUIDesignStyles() {
             border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center;
             justify-content:center; transition:background .2s,transform .1s }
         #submit-btn:active { transform:scale(.96); background:#2c5282 }
+        
+        /* ── D-pad / movement control design (ported from the interactive build) ── */
+        #d-pad {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 104px;
+            height: 104px;
+            background: var(--brand-green);
+            border-radius: 50%;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            z-index: 2500;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #d-pad:active, #d-pad.active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            background: #c8e6cb;
+        }
+        .pad-indicator {
+            position: absolute;
+            color: rgba(45, 55, 72, 0.65);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease;
+        }
+        #d-pad:active .pad-indicator, #d-pad.active .pad-indicator {
+            color: rgba(26, 32, 44, 0.9);
+        }
+        .ind-n  { top: 5px; left: 50%; transform: translateX(-50%); font-size: 12px; }
+        .ind-ne { top: 16px; right: 16px; font-size: 8px; }
+        .ind-e  { right: 6px; top: 50%; transform: translateY(-50%); font-size: 12px; }
+        .ind-se { bottom: 16px; right: 16px; font-size: 8px; }
+        .ind-s  { bottom: 5px; left: 50%; transform: translateX(-50%); font-size: 12px; }
+        .ind-sw { bottom: 16px; left: 16px; font-size: 8px; }
+        .ind-w  { left: 6px; top: 50%; transform: translateY(-50%); font-size: 12px; }
+        .ind-nw { top: 16px; left: 16px; font-size: 8px; }
     `;
     document.head.appendChild(style);
 }
@@ -343,8 +413,27 @@ function bootstrap() {
                 <circle cx="12" cy="10" r="3"></circle>
             </svg></div>DoveSeiApp</div>`;
         document.body.appendChild(hdr);
+
+        if (!document.getElementById("d-pad")) {
+            const dpad = document.createElement('div');
+            dpad.id = 'd-pad';
+            dpad.setAttribute('aria-label', "Area di controllo del movimento");
+            dpad.innerHTML = `
+                <span class="pad-indicator ind-n">&#9650;</span>
+                <span class="pad-indicator ind-ne">&bull;</span>
+                <span class="pad-indicator ind-e">&#9654;</span>
+                <span class="pad-indicator ind-se">&bull;</span>
+                <span class="pad-indicator ind-s">&#9660;</span>
+                <span class="pad-indicator ind-sw">&bull;</span>
+                <span class="pad-indicator ind-w">&#9664;</span>
+                <span class="pad-indicator ind-nw">&bull;</span>
+            `;
+            document.body.appendChild(dpad);
+        }
+
         setTimeout(() => { if (!hasSentCompletion) sendCompletionSignal("timeout"); }, ANIMATION_TIMEOUT_MS);
         requestAnimationFrame(animateNodes);
+        setupMovementControls();
     }
 
     function handleLoginSubmit() {
@@ -490,6 +579,140 @@ function bootstrap() {
     } catch(e) { showMapLoadFallback(); }
 }
 
+function setupMovementControls() {
+    const TICK_RATE_MS = 30;
+    const METERS_PER_TICK = (WALK_SPEED_MPS / 1000) * TICK_RATE_MS;
+    // How far in from the true edge of the screen the blue dot is allowed to
+    // go — keeps its icon fully visible instead of clipping at the very edge.
+    const SCREEN_EDGE_MARGIN_PX = 40;
+
+    const keyDirections = {
+        'ArrowUp': (0 + SCENE_ROTATION_DEG) % 360,
+        'ArrowRight': (90 + SCENE_ROTATION_DEG) % 360,
+        'ArrowDown': (180 + SCENE_ROTATION_DEG) % 360,
+        'ArrowLeft': (270 + SCENE_ROTATION_DEG) % 360
+    };
+
+    // Half-width/half-height of the allowed walking area, in meters, measured
+    // along the SCREEN's own right/up axes (which are rotated by
+    // SCENE_ROTATION_DEG relative to geographic east/north, since the map
+    // itself is drawn rotated). Recomputed whenever the viewport size changes.
+    let viewHalfWidthM = 0;
+    let viewHalfHeightM = 0;
+    const mpp = metersPerPixel(MAP_CENTER[1], MAP_ZOOM);
+
+    function updateViewportBounds() {
+        if (!map) return;
+        const el = map.getContainer();
+        viewHalfWidthM  = Math.max(0, (el.clientWidth  / 2 - SCREEN_EDGE_MARGIN_PX) * mpp);
+        viewHalfHeightM = Math.max(0, (el.clientHeight / 2 - SCREEN_EDGE_MARGIN_PX) * mpp);
+    }
+    updateViewportBounds();
+    window.addEventListener('resize', updateViewportBounds);
+
+    const rotRad = SCENE_ROTATION_DEG * Math.PI / 180;
+    const sinB = Math.sin(rotRad), cosB = Math.cos(rotRad);
+
+    // Keeps a candidate position inside the fixed, never-moving screen: the
+    // screen's center is permanently MAP_CENTER (the map camera never pans), so
+    // this clamps the point's screen-right/screen-up offset from MAP_CENTER to
+    // the visible half-width/half-height, sliding along the edge instead of
+    // letting the dot walk off-screen.
+    function clampToScreen(pos) {
+        const [vx, vy] = toXY(pos, MAP_CENTER); // geographic east/north meters from the fixed center
+        let right = vx * cosB - vy * sinB;   // component along the screen's "right" axis
+        let up    = vx * sinB + vy * cosB;   // component along the screen's "up" axis
+        right = Math.max(-viewHalfWidthM,  Math.min(viewHalfWidthM,  right));
+        up    = Math.max(-viewHalfHeightM, Math.min(viewHalfHeightM, up));
+        const vx2 =  right * cosB + up * sinB;
+        const vy2 = -right * sinB + up * cosB;
+        return fromXY([vx2, vy2], MAP_CENTER);
+    }
+
+    const moveStep = (bearing) => {
+        const candidate = offsetMeters(userPos, bearing, METERS_PER_TICK);
+        userPos = clampToScreen(candidate);
+        positions["mainNode"] = userPos;
+
+        if (markerInstances["mainNode"]) {
+            markerInstances["mainNode"].setLngLat(userPos);
+        }
+        // The screen/camera itself never moves (it stays fixed on MAP_CENTER) —
+        // only the blue dot's marker position updates, clamped to stay inside it.
+    };
+
+    const startMove = (bearing, identifier) => {
+        if (moveInterval) clearInterval(moveInterval);
+        currentDirectionBtn = identifier;
+
+        const touchpad = document.getElementById('d-pad');
+        if (touchpad) touchpad.classList.add('active');
+
+        moveStep(bearing);
+        moveInterval = setInterval(() => moveStep(bearing), TICK_RATE_MS);
+    };
+
+    const stopMove = (identifier) => {
+        if (currentDirectionBtn !== identifier && identifier !== 'ALL') return;
+        
+        if (moveInterval) {
+            clearInterval(moveInterval);
+            moveInterval = null;
+            currentDirectionBtn = null;
+        }
+        const touchpad = document.getElementById('d-pad');
+        if (touchpad) touchpad.classList.remove('active');
+    };
+
+    const handleTouchpadInteraction = (clientX, clientY, identifier) => {
+        const touchpad = document.getElementById('d-pad');
+        if (!touchpad) return;
+        const rect = touchpad.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const dx = clientX - centerX;
+        const dy = clientY - centerY; 
+
+        let angleDeg = Math.atan2(dx, -dy) * (180 / Math.PI);
+        if (angleDeg < 0) angleDeg += 360;
+
+        const bearing = (angleDeg + SCENE_ROTATION_DEG) % 360;
+        startMove(bearing, identifier);
+    };
+
+    const touchpad = document.getElementById('d-pad');
+    if (touchpad) {
+        touchpad.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handleTouchpadInteraction(e.clientX, e.clientY, 'mouse');
+        });
+
+        touchpad.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleTouchpadInteraction(touch.clientX, touch.clientY, 'touch');
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => stopMove('mouse'));
+        touchpad.addEventListener('mouseleave', () => stopMove('mouse'));
+        window.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) stopMove('touch');
+        });
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (keyDirections[e.key] !== undefined && currentDirectionBtn !== e.key) {
+            startMove(keyDirections[e.key], e.key);
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if (keyDirections[e.key] !== undefined) {
+            stopMove(e.key);
+        }
+    });
+}
+
 if (typeof window !== "undefined" && typeof document !== "undefined") bootstrap();
 
 if (typeof module !== "undefined" && module.exports) {
@@ -499,6 +722,7 @@ if (typeof module !== "undefined" && module.exports) {
         MAP_CENTER, MAP_ZOOM, WALK_SPEED_MPS, SCENE_ROTATION_DEG,
         T_STABLE, T_FINAL_HOLD, TOTAL_ANIMATION_DURATION,
         agentPosition, offsetMeters, buildPureDrift, calculateBearing,
+        metersPerPixel, toXY, fromXY,
         EAST, WEST
     };
 }
