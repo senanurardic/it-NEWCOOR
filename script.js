@@ -291,21 +291,21 @@ function injectUIDesignStyles() {
         .logo-icon-wrapper svg { color:#2b6cb0 }
         #container { width:100%; height:100%; position:relative }
         #map { width:100%; height:100% }
-        .experimental-grey-letter-dot { width:37.8px; height:37.8px; background:#64748b;
-            color:#fff; border:2.25px solid #fff; border-radius:50%; display:flex;
-            align-items:center; justify-content:center; font-weight:700; font-size:17px;
-            box-shadow:0 3px 8px rgba(0,0,0,.3) }
-        .google-maps-dot-container { position:relative; width:48px; height:48px;
+        .experimental-grey-letter-dot { width:28.35px; height:28.35px; background:#64748b;
+            color:#fff; border:1.6875px solid #fff; border-radius:50%; display:flex;
+            align-items:center; justify-content:center; font-weight:700; font-size:12.75px;
+            box-shadow:0 2.25px 6px rgba(0,0,0,.3) }
+        .google-maps-dot-container { position:relative; width:36px; height:36px;
             display:flex; align-items:center; justify-content:center }
-        .google-maps-pulse { position:absolute; width:48px; height:48px;
+        .google-maps-pulse { position:absolute; width:36px; height:36px;
             background:rgba(66,133,244,.4); border-radius:50%;
             animation:google-pulse 2s infinite ease-out }
-        .google-maps-core { position:relative; width:21px; height:21px; background:#4285F4;
-            border:3px solid #fff; border-radius:50%; box-shadow:0 3px 8px rgba(0,0,0,.35) }
+        .google-maps-core { position:relative; width:15.75px; height:15.75px; background:#4285F4;
+            border:2.25px solid #fff; border-radius:50%; box-shadow:0 2.25px 6px rgba(0,0,0,.35) }
         @keyframes google-pulse { 0%{transform:scale(.6);opacity:1} 100%{transform:scale(2.2);opacity:0} }
-        .agent-label { position:absolute; bottom:-24px; background:rgba(255,255,255,.95);
-            padding:3px 9px; border-radius:6px; font-size:12px; font-weight:600; color:#1a1a1a;
-            box-shadow:0 2px 6px rgba(0,0,0,.15); white-space:nowrap }
+        .agent-label { position:absolute; bottom:-21px; background:rgba(255,255,255,.95);
+            padding:2px 7px; border-radius:5px; font-size:11px; font-weight:600; color:#1a1a1a;
+            box-shadow:0 1px 5px rgba(0,0,0,.15); white-space:nowrap }
         .login-container { display:flex; flex-direction:column; align-items:center; gap:16px; width:300px }
         .instruction { font-size:15px; color:#374151; text-align:center; margin:0; line-height:1.5 }
         #nickname-input { width:100%; padding:12px 16px; border:1px solid #cbd5e1; border-radius:12px;
