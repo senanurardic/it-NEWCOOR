@@ -27,12 +27,16 @@
  * 26–28    PAUSE (2 s) ← orig G            straight BM1
  * 28–30    straight BG1                   PAUSE (2 s) ← orig M
  *  ── Phase 2 · joint departure along B2 (30–60 s, 30 s total) ─────────────
- * 30–36    straight B2                    straight B2
- * 36–38    PAUSE (2 s)                    PAUSE (2 s)
+ * 30–32    straight B2                    M→G join (BM_JOIN)
+ * 32–36    straight B2                    straight B2
+ * 36–38    straight B2                    PAUSE (2 s) ← orig M
  * 38–44    straight B2                    straight B2
- * 44–50    PAUSE (6 s)                    PAUSE (6 s)
- * 50–53    deviate EAST                   deviate EAST
- * 53–56    deviate WEST (cancel)          deviate WEST (cancel)
+ * 44–48    PAUSE (4 s) ← orig G           straight B2
+ * 48–50    deviate EAST                   PAUSE (2 s) ← orig M
+ * 50–51    deviate EAST (cont.)           deviate EAST
+ * 51–53    deviate WEST (cancel)          deviate EAST (cont.)
+ * 53–54    straight B2                    deviate WEST (cancel)
+ * 54–56    straight B2                    deviate WEST (cont.)
  * 56–60    straight B2                    straight B2
  *  ── Phase 3 · final hold (60–62 s) ──────────────────────────────────────
  * 60–62    PAUSE (2 s)                    PAUSE (2 s)
@@ -136,10 +140,12 @@ const B2 = calculateBearing(START_U, MEETING_CENTER);
 
 // ── Compute t=30 positions from phase-1 only, to derive M→G joining bearing ─
 // (these temporary waypoint arrays are discarded after the bearing is computed)
+// G P1: pauses 0-2, 8-11, 26-28 — EAST deviation at 12-18 preserved
 const _SCHED_G_P1 = [
     { d:2, b:null }, { d:6, b:BG1  }, { d:3, b:null }, { d:1, b:BG1  },
-    { d:6, b:EAST }, { d:2, b:BG1  }, { d:6, b:BG1  }, { d:2, b:null }, { d:2, b:BG1  }
+    { d:6, b:EAST }, { d:8, b:BG1  }, { d:2, b:null }, { d:2, b:BG1  }
 ];
+// M P1: pauses 0-2, 11-12, 18-20, 28-30 — M_DEV1 at 2-8, M_DEV2 at 20-26 preserved
 const _SCHED_M_P1 = [
     { d:2, b:null   }, { d:6, b:M_DEV1 }, { d:3, b:BM1   }, { d:1, b:null  },
     { d:6, b:BM1    }, { d:2, b:null   }, { d:6, b:M_DEV2 }, { d:2, b:BM1   }, { d:2, b:null }
@@ -155,25 +161,23 @@ const BM_JOIN = calculateBearing(M_POS_30, G_POS_30);
 
 const SCHEDULE_G = [
     // ── Phase 1 (0–30 s): G heads toward G_P1_TARGET (screen-left of MEETING_CENTER)
-    //    Pauses and EAST deviation preserved from original EXCLUSION SCHEDULE_G ──────
+    //    Pauses at 0–2, 8–11, 26–28. EAST deviation at 12–18 preserved. ───────────
     { d:  2, b: null },  // 0–2   PAUSE 2 s        ← original
     { d:  6, b: BG1  },  // 2–8   straight
     { d:  3, b: null },  // 8–11  PAUSE 3 s        ← original
     { d:  1, b: BG1  },  // 11–12 straight
     { d:  6, b: EAST },  // 12–18 deviate EAST     ← original deviation (unchanged)
-    { d:  2, b: BG1  },  // 18–20 straight
-    { d:  6, b: BG1  },  // 20–26 straight
+    { d:  8, b: BG1  },  // 18–26 straight (merged 18–20 + 20–26)
     { d:  2, b: null },  // 26–28 PAUSE 2 s        ← original
     { d:  2, b: BG1  },  // 28–30 straight
 
     // ── Phase 2 (30–60 s): joint departure away from user — 30 s exactly ──
-    { d:  6, b: B2   },  // 30–36 straight → 12 m
-    { d:  2, b: null },  // 36–38 PAUSE 2 s
-    { d:  6, b: B2   },  // 38–44 straight → 12 m
-    { d:  6, b: null },  // 44–50 PAUSE 6 s
-    { d:  3, b: EAST },  // 50–53 deviate EAST
-    { d:  3, b: WEST },  // 53–56 deviate WEST (cancel)
-    { d:  4, b: B2   },  // 56–60 straight → 8 m  [30 s total phase-2 ✓]
+    //    G pause only at 44–48 (4 s). ────────────────────────────────────────
+    { d: 14, b: B2   },  // 30–44 straight → 28 m
+    { d:  4, b: null },  // 44–48 PAUSE 4 s        ← original G
+    { d:  3, b: EAST },  // 48–51 deviate EAST
+    { d:  3, b: WEST },  // 51–54 deviate WEST (cancel)
+    { d:  6, b: B2   },  // 54–60 straight → 12 m  [30 s total phase-2 ✓]
 
     // ── Phase 3 (60–62 s): final 2 s pause ──────────────────────────────────
     { d:  2, b: null },  // 60–62 PAUSE 2 s — end
@@ -181,7 +185,7 @@ const SCHEDULE_G = [
 
 const SCHEDULE_M = [
     // ── Phase 1 (0–30 s): M heads toward M_P1_TARGET (screen-right of MEETING_CENTER)
-    //    Pauses preserved; deviation angles adjusted (25°/350°) so M reaches closer ──
+    //    Pauses at 0–2, 11–12, 18–20, 28–30. Deviation angles adjusted (25°/350°). ──
     { d:  2, b: null   },  // 0–2   PAUSE 2 s        ← original
     { d:  6, b: M_DEV1 },  // 2–8   deviate 25° (NNE) — was EAST/90°
     { d:  3, b: BM1    },  // 8–11  straight
@@ -193,12 +197,12 @@ const SCHEDULE_M = [
     { d:  2, b: null   },  // 28–30 PAUSE 2 s        ← original
 
     // ── Phase 2 (30–60 s): M first steps 2 s toward G (closes gap), then B2
-    //    This makes side-by-side departure legible — 30 s exactly ─────────────
+    //    M pauses at 36–38 and 48–50. — 30 s exactly ──────────────────────────
     { d:  2, b: BM_JOIN },  // 30–32 M slides to G's side (computed at build time)
     { d:  4, b: B2      },  // 32–36 straight together
-    { d:  2, b: null    },  // 36–38 PAUSE 2 s
-    { d:  6, b: B2      },  // 38–44 straight → 12 m
-    { d:  6, b: null    },  // 44–50 PAUSE 6 s
+    { d:  2, b: null    },  // 36–38 PAUSE 2 s        ← original M
+    { d: 10, b: B2      },  // 38–48 straight → 20 m
+    { d:  2, b: null    },  // 48–50 PAUSE 2 s        ← original M
     { d:  3, b: EAST    },  // 50–53 deviate EAST
     { d:  3, b: WEST    },  // 53–56 deviate WEST (cancel)
     { d:  4, b: B2      },  // 56–60 straight → 8 m  [30 s total phase-2 ✓]
