@@ -1,30 +1,45 @@
 /* ============================================================================
  * LOCATION-SHARING SOCIAL DISCONNECTION PARADIGM
- * Condition: EXCLUSION — G and M diverge (total ~65s)
+ * Condition: NEWCOOR — G and M converge diagonally toward MEETING_CENTER,
+ *            meet side-by-side at t=30 s, depart together for 30 s,
+ *            then 2 s final pause at 60–62 s.
+ *
+ * ── PAUSE & DEVIATION STRUCTURE ──────────────────────────────────────────────
+ *   G pause timings are IDENTICAL to the original EXCLUSION SCHEDULE_G.
+ *   M pause timings are IDENTICAL to the original EXCLUSION SCHEDULE_M.
+ *   G deviation at 12–18 s: EAST (same as original)
+ *   M deviations: EAST at 2–8 s, 342° at 20–26 s (same as original)
+ *   Walking segments aimed toward respective side-by-side targets near
+ *   MEETING_CENTER = [32.889060, 39.930009].
+ *   Phase 2 (30–60 s): joint departure, same pauses/deviations, 30 s total.
+ *   Phase 3 (60–62 s): 2 s final pause.
  *
  * ── MOVEMENT TABLE (global seconds) ────────────────────────────────────────
- *  t         G                         M
- *  0– 2    pause                     pause
- *  2– 8    straight BG               deviate EAST
- *  8–11    PAUSE (3s)                straight BM
- * 11–12    straight BG               PAUSE (1s)
- * 12–18    deviate EAST              straight BM
- * 18–20    straight BG               PAUSE (2s)
- * 20–26    straight BG               deviate WEST (342°)
- * 26–28    PAUSE (2s)                straight BM
- * 28–30    straight BG               PAUSE (2s)
- * 30–36    deviate WEST              straight BM
- * 36–38    straight BG               PAUSE (2s)
- * 38–44    straight BG               deviate EAST
- * 44–48    PAUSE (4s)                straight BM
- * 48–50    straight BG               PAUSE (2s)
- * 50–53    deviate EAST              deviate WEST
- * 53–56    deviate WEST              deviate EAST
- * 56–62    straight BG               straight BM
+ *  t         G                              M
+ *  ── Phase 1 · convergence toward MEETING_CENTER ───────────────────────────
+ *  0– 2    PAUSE (2 s) ← orig G            PAUSE (2 s) ← orig M
+ *  2– 8    straight BG1                   deviate EAST ← orig M deviation
+ *  8–11    PAUSE (3 s) ← orig G            straight BM1
+ * 11–12    straight BG1                   PAUSE (1 s) ← orig M
+ * 12–18    deviate EAST ← orig G dev       straight BM1
+ * 18–20    straight BG1                   PAUSE (2 s) ← orig M
+ * 20–26    straight BG1                   deviate 342° ← orig M deviation
+ * 26–28    PAUSE (2 s) ← orig G            straight BM1
+ * 28–30    straight BG1                   PAUSE (2 s) ← orig M
+ *  ── Phase 2 · joint departure along B2 (30–60 s, 30 s total) ─────────────
+ * 30–36    straight B2                    straight B2
+ * 36–38    PAUSE (2 s)                    PAUSE (2 s)
+ * 38–44    straight B2                    straight B2
+ * 44–50    PAUSE (6 s)                    PAUSE (6 s)
+ * 50–53    deviate EAST                   deviate EAST
+ * 53–56    deviate WEST (cancel)          deviate WEST (cancel)
+ * 56–60    straight B2                    straight B2
+ *  ── Phase 3 · final hold (60–62 s) ──────────────────────────────────────
+ * 60–62    PAUSE (2 s)                    PAUSE (2 s)
  * ========================================================================== */
 
-const CONDITION         = "EXCLUSION";
-const CONDITION_LABEL = "Exclusion Condition";
+const CONDITION         = "NEWCOOR";
+const CONDITION_LABEL   = "New Coordination Condition";
 
 const MAP_CENTER         = [32.888799, 39.929662];
 const SCENE_ROTATION_DEG = 21;
@@ -55,7 +70,6 @@ function offsetMeters(origin, bearingDeg, meters) {
     return [origin[0] + dLng, origin[1] + dLat];
 }
 
-// Local flat metric frame (x = east m, y = north m) around a reference point
 function toXY(p, ref) {
     const k = Math.cos(ref[1] * Math.PI / 180);
     return [(p[0] - ref[0]) * M_PER_DEG_LAT * k, (p[1] - ref[1]) * M_PER_DEG_LAT];
@@ -66,7 +80,6 @@ function fromXY(xy, ref) {
 }
 function vecBearing(v) { return (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360; }
 
-// Map's screen-pixel-to-meter ratio (Web Mercator), for a given latitude and zoom.
 function metersPerPixel(lat, zoom) {
     return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
 }
@@ -94,46 +107,104 @@ const ROAD_TARGET_2 = [32.889835, 39.929885];
 const BG = calculateBearing(START_G, TARGET_G);
 const BM = calculateBearing(START_M, TARGET_M);
 
+// ── NEWCOOR-specific constants ────────────────────────────────────────────────
+
+// The researcher-specified meeting point.
+const MEETING_CENTER = [32.889060, 39.930009];
+
+// Side-by-side targets: each icon is placed ~10 m from MEETING_CENTER along
+// the screen-perpendicular axis (map bearing 21° → screen-left = 291°,
+// screen-right = 111°), so the icons appear as two touching circles.
+const G_P1_TARGET = offsetMeters(MEETING_CENTER, 291, 10);  // G: screen-left
+const M_P1_TARGET = offsetMeters(MEETING_CENTER, 111, 10);  // M: screen-right
+
+// Phase-1 bearings: G heads NNE from START_G toward G_P1_TARGET,
+//                   M heads roughly N from START_M toward M_P1_TARGET.
+// Both travel diagonally toward the meeting area (not toward each other).
+const BG1 = calculateBearing(START_G, G_P1_TARGET);
+const BM1 = calculateBearing(START_M, M_P1_TARGET);
+
+// M deviation angles — adjusted so M's net displacement lands it closer to
+// M_P1_TARGET.  Original EXCLUSION values (90° and 342°) pulled M too far
+// east-ward; these tighter angles keep the visual "detour" while pointing
+// more of the 12 m budgets northward toward the meeting area.
+const M_DEV1 = 25;   // was 90° (EAST) — now NNE, still a visible eastward detour
+const M_DEV2 = 350;  // was 342° — now nearly N, minimal westward drag
+
+// Phase-2 bearing: direction FROM user TOWARD the meeting point (away from user).
+const B2 = calculateBearing(START_U, MEETING_CENTER);
+
+// ── Compute t=30 positions from phase-1 only, to derive M→G joining bearing ─
+// (these temporary waypoint arrays are discarded after the bearing is computed)
+const _SCHED_G_P1 = [
+    { d:2, b:null }, { d:6, b:BG1  }, { d:3, b:null }, { d:1, b:BG1  },
+    { d:6, b:EAST }, { d:2, b:BG1  }, { d:6, b:BG1  }, { d:2, b:null }, { d:2, b:BG1  }
+];
+const _SCHED_M_P1 = [
+    { d:2, b:null   }, { d:6, b:M_DEV1 }, { d:3, b:BM1   }, { d:1, b:null  },
+    { d:6, b:BM1    }, { d:2, b:null   }, { d:6, b:M_DEV2 }, { d:2, b:BM1   }, { d:2, b:null }
+];
+const _WP_G_P1 = buildWaypoints(START_G, _SCHED_G_P1);
+const _WP_M_P1 = buildWaypoints(START_M, _SCHED_M_P1);
+const G_POS_30  = _WP_G_P1[_WP_G_P1.length - 1].pos;
+const M_POS_30  = _WP_M_P1[_WP_M_P1.length - 1].pos;
+// M's joining bearing: at t=30 M steps 2 s toward G before both walk B2
+const BM_JOIN = calculateBearing(M_POS_30, G_POS_30);
+
 // ── Schedules ─────────────────────────────────────────────────────────────────
 
 const SCHEDULE_G = [
-    { d: 2,  b: null },                    // global  0– 2  pause
-    { d: 6,  b: BG },                      // global  2– 8  straight BG
-    { d: 3,  b: null },                    // global  8–11  PAUSE (3s)
-    { d: 1,  b: BG },                      // global 11–12  straight BG
-    ...buildPureDrift(6, EAST),            // global 12–18  deviate EAST
-    { d: 2,  b: BG },                      // global 18–20  straight BG
-    { d: 6,  b: BG },                      // global 20–26  straight BG
-    { d: 2,  b: null },                    // global 26–28  PAUSE (2s)
-    { d: 2,  b: BG },                      // global 28–30  straight BG
-    ...buildPureDrift(6, WEST),            // global 30–36  deviate WEST
-    { d: 2,  b: BG },                      // global 36–38  straight BG
-    { d: 6,  b: BG },                      // global 38–44  straight BG
-    { d: 4,  b: null },                    // global 44–48  PAUSE (4s)
-    { d: 2,  b: BG },                      // global 48–50  straight BG
-    ...buildPureDrift(3, EAST),            // global 50–53  deviate EAST
-    ...buildPureDrift(3, WEST),            // global 53–56  deviate WEST
-    { d: 6,  b: BG },                      // global 56–62  straight BG
+    // ── Phase 1 (0–30 s): G heads toward G_P1_TARGET (screen-left of MEETING_CENTER)
+    //    Pauses and EAST deviation preserved from original EXCLUSION SCHEDULE_G ──────
+    { d:  2, b: null },  // 0–2   PAUSE 2 s        ← original
+    { d:  6, b: BG1  },  // 2–8   straight
+    { d:  3, b: null },  // 8–11  PAUSE 3 s        ← original
+    { d:  1, b: BG1  },  // 11–12 straight
+    { d:  6, b: EAST },  // 12–18 deviate EAST     ← original deviation (unchanged)
+    { d:  2, b: BG1  },  // 18–20 straight
+    { d:  6, b: BG1  },  // 20–26 straight
+    { d:  2, b: null },  // 26–28 PAUSE 2 s        ← original
+    { d:  2, b: BG1  },  // 28–30 straight
+
+    // ── Phase 2 (30–60 s): joint departure away from user — 30 s exactly ──
+    { d:  6, b: B2   },  // 30–36 straight → 12 m
+    { d:  2, b: null },  // 36–38 PAUSE 2 s
+    { d:  6, b: B2   },  // 38–44 straight → 12 m
+    { d:  6, b: null },  // 44–50 PAUSE 6 s
+    { d:  3, b: EAST },  // 50–53 deviate EAST
+    { d:  3, b: WEST },  // 53–56 deviate WEST (cancel)
+    { d:  4, b: B2   },  // 56–60 straight → 8 m  [30 s total phase-2 ✓]
+
+    // ── Phase 3 (60–62 s): final 2 s pause ──────────────────────────────────
+    { d:  2, b: null },  // 60–62 PAUSE 2 s — end
 ];
 
 const SCHEDULE_M = [
-    { d: 2,  b: null },                    // global  0– 2  pause
-    ...buildPureDrift(6, EAST),            // global  2– 8  deviate EAST
-    { d: 3,  b: BM },                      // global  8–11  straight BM
-    { d: 1,  b: null },                    // global 11–12  PAUSE (1s)
-    { d: 6,  b: BM },                      // global 12–18  straight BM
-    { d: 2,  b: null },                    // global 18–20  PAUSE (2s)
-    ...buildPureDrift(6, 342),             // global 20–26  deviate LEFT (BM-90°)
-    { d: 2,  b: BM },                      // global 26–28  straight BM
-    { d: 2,  b: null },                    // global 28–30  PAUSE (2s)
-    { d: 6,  b: BM },                      // global 30–36  straight BM
-    { d: 2,  b: null },                    // global 36–38  PAUSE (2s)
-    ...buildPureDrift(6, EAST),            // global 38–44  deviate EAST
-    { d: 4,  b: BM },                      // global 44–48  straight BM
-    { d: 2,  b: null },                    // global 48–50  PAUSE (2s)
-    ...buildPureDrift(3, WEST),            // global 50–53  deviate WEST
-    ...buildPureDrift(3, EAST),            // global 53–56  deviate EAST
-    { d: 6,  b: BM },                      // global 56–62  straight BM
+    // ── Phase 1 (0–30 s): M heads toward M_P1_TARGET (screen-right of MEETING_CENTER)
+    //    Pauses preserved; deviation angles adjusted (25°/350°) so M reaches closer ──
+    { d:  2, b: null   },  // 0–2   PAUSE 2 s        ← original
+    { d:  6, b: M_DEV1 },  // 2–8   deviate 25° (NNE) — was EAST/90°
+    { d:  3, b: BM1    },  // 8–11  straight
+    { d:  1, b: null   },  // 11–12 PAUSE 1 s        ← original
+    { d:  6, b: BM1    },  // 12–18 straight
+    { d:  2, b: null   },  // 18–20 PAUSE 2 s        ← original
+    { d:  6, b: M_DEV2 },  // 20–26 deviate 350° (N) — was 342°
+    { d:  2, b: BM1    },  // 26–28 straight
+    { d:  2, b: null   },  // 28–30 PAUSE 2 s        ← original
+
+    // ── Phase 2 (30–60 s): M first steps 2 s toward G (closes gap), then B2
+    //    This makes side-by-side departure legible — 30 s exactly ─────────────
+    { d:  2, b: BM_JOIN },  // 30–32 M slides to G's side (computed at build time)
+    { d:  4, b: B2      },  // 32–36 straight together
+    { d:  2, b: null    },  // 36–38 PAUSE 2 s
+    { d:  6, b: B2      },  // 38–44 straight → 12 m
+    { d:  6, b: null    },  // 44–50 PAUSE 6 s
+    { d:  3, b: EAST    },  // 50–53 deviate EAST
+    { d:  3, b: WEST    },  // 53–56 deviate WEST (cancel)
+    { d:  4, b: B2      },  // 56–60 straight → 8 m  [30 s total phase-2 ✓]
+
+    // ── Phase 3 (60–62 s): final 2 s pause ──────────────────────────────────
+    { d:  2, b: null },  // 60–62 PAUSE 2 s — end
 ];
 
 // ── Runtime ───────────────────────────────────────────────────────────────────
@@ -316,55 +387,31 @@ function injectUIDesignStyles() {
             border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center;
             justify-content:center; transition:background .2s,transform .1s }
         #submit-btn:active { transform:scale(.96); background:#2c5282 }
-        
-        /* ── D-pad / movement control design (ported from the interactive build) ── */
         #d-pad {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 104px;
-            height: 104px;
-            background: var(--brand-green);
-            border-radius: 50%;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
-            border: 2px solid rgba(255, 255, 255, 0.9);
-            z-index: 2500;
-            cursor: pointer;
-            touch-action: manipulation;
-            -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s ease, box-shadow 0.1s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            width: 104px; height: 104px; background: var(--brand-green); border-radius: 50%;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.06);
+            border: 2px solid rgba(255,255,255,.9); z-index: 2500; cursor: pointer;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            transition: transform .1s ease, box-shadow .1s ease;
+            display: flex; align-items: center; justify-content: center;
         }
         #d-pad:active, #d-pad.active {
             transform: translateX(-50%) scale(0.95);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            background: #c8e6cb;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15); background: #c8e6cb;
         }
-        .pad-indicator {
-            position: absolute;
-            color: rgba(45, 55, 72, 0.65);
-            pointer-events: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.15s ease;
-        }
-        #d-pad:active .pad-indicator, #d-pad.active .pad-indicator {
-            color: rgba(26, 32, 44, 0.9);
-        }
-        .ind-n  { top: 5px; left: 50%; transform: translateX(-50%); font-size: 12px; }
-        .ind-ne { top: 16px; right: 16px; font-size: 8px; }
-        .ind-e  { right: 6px; top: 50%; transform: translateY(-50%); font-size: 12px; }
-        .ind-se { bottom: 16px; right: 16px; font-size: 8px; }
-        .ind-s  { bottom: 5px; left: 50%; transform: translateX(-50%); font-size: 12px; }
-        .ind-sw { bottom: 16px; left: 16px; font-size: 8px; }
-        .ind-w  { left: 6px; top: 50%; transform: translateY(-50%); font-size: 12px; }
-        .ind-nw { top: 16px; left: 16px; font-size: 8px; }
+        .pad-indicator { position:absolute; color:rgba(45,55,72,.65); pointer-events:none;
+            display:flex; align-items:center; justify-content:center; transition:color .15s ease; }
+        #d-pad:active .pad-indicator, #d-pad.active .pad-indicator { color:rgba(26,32,44,.9); }
+        .ind-n  { top:5px; left:50%; transform:translateX(-50%); font-size:12px; }
+        .ind-ne { top:16px; right:16px; font-size:8px; }
+        .ind-e  { right:6px; top:50%; transform:translateY(-50%); font-size:12px; }
+        .ind-se { bottom:16px; right:16px; font-size:8px; }
+        .ind-s  { bottom:5px; left:50%; transform:translateX(-50%); font-size:12px; }
+        .ind-sw { bottom:16px; left:16px; font-size:8px; }
+        .ind-w  { left:6px; top:50%; transform:translateY(-50%); font-size:12px; }
+        .ind-nw { top:16px; left:16px; font-size:8px; }
     `;
     document.head.appendChild(style);
 }
@@ -553,10 +600,7 @@ function bootstrap() {
                 let firstRoadLayerId = null;
                 for (const l of map.getStyle().layers) {
                     const sl = (l["source-layer"] || "").toLowerCase();
-                    if (sl === "transportation") {
-                        firstRoadLayerId = l.id;
-                        break;
-                    }
+                    if (sl === "transportation") { firstRoadLayerId = l.id; break; }
                 }
 
                 map.addLayer({
@@ -582,23 +626,16 @@ function bootstrap() {
 function setupMovementControls() {
     const TICK_RATE_MS = 30;
     const METERS_PER_TICK = (WALK_SPEED_MPS / 1000) * TICK_RATE_MS;
-    // How far in from the true edge of the screen the blue dot is allowed to
-    // go — keeps its icon fully visible instead of clipping at the very edge.
     const SCREEN_EDGE_MARGIN_PX = 40;
 
     const keyDirections = {
-        'ArrowUp': (0 + SCENE_ROTATION_DEG) % 360,
-        'ArrowRight': (90 + SCENE_ROTATION_DEG) % 360,
-        'ArrowDown': (180 + SCENE_ROTATION_DEG) % 360,
-        'ArrowLeft': (270 + SCENE_ROTATION_DEG) % 360
+        'ArrowUp':    (0   + SCENE_ROTATION_DEG) % 360,
+        'ArrowRight': (90  + SCENE_ROTATION_DEG) % 360,
+        'ArrowDown':  (180 + SCENE_ROTATION_DEG) % 360,
+        'ArrowLeft':  (270 + SCENE_ROTATION_DEG) % 360
     };
 
-    // Half-width/half-height of the allowed walking area, in meters, measured
-    // along the SCREEN's own right/up axes (which are rotated by
-    // SCENE_ROTATION_DEG relative to geographic east/north, since the map
-    // itself is drawn rotated). Recomputed whenever the viewport size changes.
-    let viewHalfWidthM = 0;
-    let viewHalfHeightM = 0;
+    let viewHalfWidthM = 0, viewHalfHeightM = 0;
     const mpp = metersPerPixel(MAP_CENTER[1], MAP_ZOOM);
 
     function updateViewportBounds() {
@@ -613,15 +650,10 @@ function setupMovementControls() {
     const rotRad = SCENE_ROTATION_DEG * Math.PI / 180;
     const sinB = Math.sin(rotRad), cosB = Math.cos(rotRad);
 
-    // Keeps a candidate position inside the fixed, never-moving screen: the
-    // screen's center is permanently MAP_CENTER (the map camera never pans), so
-    // this clamps the point's screen-right/screen-up offset from MAP_CENTER to
-    // the visible half-width/half-height, sliding along the edge instead of
-    // letting the dot walk off-screen.
     function clampToScreen(pos) {
-        const [vx, vy] = toXY(pos, MAP_CENTER); // geographic east/north meters from the fixed center
-        let right = vx * cosB - vy * sinB;   // component along the screen's "right" axis
-        let up    = vx * sinB + vy * cosB;   // component along the screen's "up" axis
+        const [vx, vy] = toXY(pos, MAP_CENTER);
+        let right = vx * cosB - vy * sinB;
+        let up    = vx * sinB + vy * cosB;
         right = Math.max(-viewHalfWidthM,  Math.min(viewHalfWidthM,  right));
         up    = Math.max(-viewHalfHeightM, Math.min(viewHalfHeightM, up));
         const vx2 =  right * cosB + up * sinB;
@@ -633,33 +665,21 @@ function setupMovementControls() {
         const candidate = offsetMeters(userPos, bearing, METERS_PER_TICK);
         userPos = clampToScreen(candidate);
         positions["mainNode"] = userPos;
-
-        if (markerInstances["mainNode"]) {
-            markerInstances["mainNode"].setLngLat(userPos);
-        }
-        // The screen/camera itself never moves (it stays fixed on MAP_CENTER) —
-        // only the blue dot's marker position updates, clamped to stay inside it.
+        if (markerInstances["mainNode"]) markerInstances["mainNode"].setLngLat(userPos);
     };
 
     const startMove = (bearing, identifier) => {
         if (moveInterval) clearInterval(moveInterval);
         currentDirectionBtn = identifier;
-
         const touchpad = document.getElementById('d-pad');
         if (touchpad) touchpad.classList.add('active');
-
         moveStep(bearing);
         moveInterval = setInterval(() => moveStep(bearing), TICK_RATE_MS);
     };
 
     const stopMove = (identifier) => {
         if (currentDirectionBtn !== identifier && identifier !== 'ALL') return;
-        
-        if (moveInterval) {
-            clearInterval(moveInterval);
-            moveInterval = null;
-            currentDirectionBtn = null;
-        }
+        if (moveInterval) { clearInterval(moveInterval); moveInterval = null; currentDirectionBtn = null; }
         const touchpad = document.getElementById('d-pad');
         if (touchpad) touchpad.classList.remove('active');
     };
@@ -669,16 +689,10 @@ function setupMovementControls() {
         if (!touchpad) return;
         const rect = touchpad.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        const dx = clientX - centerX;
-        const dy = clientY - centerY; 
-
-        let angleDeg = Math.atan2(dx, -dy) * (180 / Math.PI);
+        const centerY = rect.top  + rect.height / 2;
+        let angleDeg = Math.atan2(clientX - centerX, -(clientY - centerY)) * (180 / Math.PI);
         if (angleDeg < 0) angleDeg += 360;
-
-        const bearing = (angleDeg + SCENE_ROTATION_DEG) % 360;
-        startMove(bearing, identifier);
+        startMove((angleDeg + SCENE_ROTATION_DEG) % 360, identifier);
     };
 
     const touchpad = document.getElementById('d-pad');
@@ -687,29 +701,21 @@ function setupMovementControls() {
             e.preventDefault();
             handleTouchpadInteraction(e.clientX, e.clientY, 'mouse');
         });
-
         touchpad.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const touch = e.touches[0];
-            handleTouchpadInteraction(touch.clientX, touch.clientY, 'touch');
+            handleTouchpadInteraction(e.touches[0].clientX, e.touches[0].clientY, 'touch');
         }, { passive: false });
-
-        window.addEventListener('mouseup', () => stopMove('mouse'));
+        window.addEventListener('mouseup',   () => stopMove('mouse'));
         touchpad.addEventListener('mouseleave', () => stopMove('mouse'));
-        window.addEventListener('touchend', (e) => {
-            if (e.touches.length === 0) stopMove('touch');
-        });
+        window.addEventListener('touchend',  (e) => { if (e.touches.length === 0) stopMove('touch'); });
     }
 
     window.addEventListener('keydown', (e) => {
-        if (keyDirections[e.key] !== undefined && currentDirectionBtn !== e.key) {
+        if (keyDirections[e.key] !== undefined && currentDirectionBtn !== e.key)
             startMove(keyDirections[e.key], e.key);
-        }
     });
     window.addEventListener('keyup', (e) => {
-        if (keyDirections[e.key] !== undefined) {
-            stopMove(e.key);
-        }
+        if (keyDirections[e.key] !== undefined) stopMove(e.key);
     });
 }
 
@@ -721,8 +727,8 @@ if (typeof module !== "undefined" && module.exports) {
         START_G, START_M, START_U, TARGET_G, TARGET_M,
         MAP_CENTER, MAP_ZOOM, WALK_SPEED_MPS, SCENE_ROTATION_DEG,
         T_STABLE, T_FINAL_HOLD, TOTAL_ANIMATION_DURATION,
+        MEETING_CENTER, G_P1_TARGET, M_P1_TARGET, BG1, BM1, B2,
         agentPosition, offsetMeters, buildPureDrift, calculateBearing,
-        metersPerPixel, toXY, fromXY,
-        EAST, WEST
+        metersPerPixel, toXY, fromXY, EAST, WEST
     };
 }
