@@ -10,7 +10,7 @@
  *   G deviation at 12–18 s: EAST (same as original)
  *   M deviations: EAST at 2–8 s, 342° at 20–26 s (same as original)
  *   Walking segments aimed toward respective side-by-side targets near
- *   MEETING_CENTER = [32.889060, 39.930009].
+ *   MEETING_CENTER = [32.889138, 39.930111].
  *   Phase 2 (30–60 s): joint departure, same pauses/deviations, 30 s total.
  *   Phase 3 (60–62 s): 2 s final pause.
  *
@@ -97,16 +97,24 @@ const WEST = 270;
 
 // ── Locations ─────────────────────────────────────────────────────────────────
 
-const START_G = [32.888409, 39.929681];
-const START_M = [32.889090, 39.929422];
+const START_G = [32.888487, 39.929783];
+const START_M = [32.889168, 39.929524];
 const START_U = [32.888559, 39.929150];
 
-const TARGET_G = [32.888455, 39.930278];
-const TARGET_M = [32.890168, 39.929707];
+const TARGET_G = [32.888533, 39.930380];
+const TARGET_M = [32.890246, 39.929809];
 
 const ROAD_START    = [32.888752, 39.929566];
 const ROAD_TARGET_1 = [32.888541, 39.930241];
 const ROAD_TARGET_2 = [32.889835, 39.929885];
+
+// Visual-only road segments — kept at the ORIGINAL (pre-shift) coordinates so the
+// virtual road network stays exactly as originally designed, independent of where
+// the G/M icons now actually start walking from.
+const ROAD_G_START  = [32.888409, 39.929681];
+const ROAD_G_TARGET = [32.888455, 39.930278];
+const ROAD_M_START  = [32.889090, 39.929422];
+const ROAD_M_TARGET = [32.890168, 39.929707];
 
 const BG = calculateBearing(START_G, TARGET_G);
 const BM = calculateBearing(START_M, TARGET_M);
@@ -114,7 +122,7 @@ const BM = calculateBearing(START_M, TARGET_M);
 // ── NEWCOOR-specific constants ────────────────────────────────────────────────
 
 // The researcher-specified meeting point.
-const MEETING_CENTER = [32.889060, 39.930009];
+const MEETING_CENTER = [32.889138, 39.930111];
 
 // Side-by-side targets: each icon is placed ~10 m from MEETING_CENTER along
 // the screen-perpendicular axis (map bearing 21° → screen-left = 291°,
@@ -594,8 +602,8 @@ function bootstrap() {
                 declutterBasemap(); applyFindMyPalette();
 
                 map.addSource("virtual-roads", { type: "geojson", data: { type: "FeatureCollection", features: [
-                    { type: "Feature", geometry: { type: "LineString", coordinates: [START_G, TARGET_G] } },
-                    { type: "Feature", geometry: { type: "LineString", coordinates: [START_M, TARGET_M] } },
+                    { type: "Feature", geometry: { type: "LineString", coordinates: [ROAD_G_START, ROAD_G_TARGET] } },
+                    { type: "Feature", geometry: { type: "LineString", coordinates: [ROAD_M_START, ROAD_M_TARGET] } },
                     { type: "Feature", geometry: { type: "LineString", coordinates: [ROAD_START, ROAD_TARGET_1] } },
                     { type: "Feature", geometry: { type: "LineString", coordinates: [ROAD_START, ROAD_TARGET_2] } },
                     { type: "Feature", geometry: { type: "LineString", coordinates: [[32.888292,39.930351],[32.887327,39.930721]] } }
